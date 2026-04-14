@@ -42,6 +42,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             let minIndex = max(0, activeIndex - preloadAmount)
             let maxIndex = max(minIndex, min(data.count - 1, activeIndex + preloadAmount))
             let visibleRange = minIndex ... maxIndex
+            
+            let disableScrolling = isDragging && ((orientation == .horizontal && dragDirection == .horizontal) || (orientation == .vertical && dragDirection == .vertical))
 
             ZStack(alignment: isHorizontal ? .leading : .top) {
                 if !data.isEmpty {
@@ -53,6 +55,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                                 x: isHorizontal ? CGFloat(index) * totalDimension : 0,
                                 y: isHorizontal ? 0 : CGFloat(index) * totalDimension
                             )
+                            .scrollDisabled(disableScrolling)
                     }
                 }
             }
