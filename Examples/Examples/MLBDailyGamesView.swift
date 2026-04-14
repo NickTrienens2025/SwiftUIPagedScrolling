@@ -101,6 +101,7 @@ struct MLBDailyGamesView: View {
                     }
                 }
             }
+            .ignorePagerGesture()
         }
         .padding()
         .background(Color(UIColor.tertiarySystemBackground))

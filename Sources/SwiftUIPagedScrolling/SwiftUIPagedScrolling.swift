@@ -17,6 +17,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
     @State private var isDragging: Bool = false
     @State private var gestureStartIndex: Int = 0
 
+    @StateObject private var pagerContext = PagerContext()
+
     // Configuration
     var pageSpacing: CGFloat = 0
     var preloadAmount: Int = 2
@@ -65,6 +67,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                                 y: isHorizontal ? 0 : CGFloat(index) * totalDimension
                             )
                             .scrollDisabled(disableScrolling)
+                            .environment(\.pagerContext, pagerContext)
                     }
                 }
             }
@@ -75,6 +78,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             .applyPagerGesture(
                 gesture: DragGesture(minimumDistance: 15, coordinateSpace: .local)
                     .onChanged { value in
+                        if pagerContext.isChildHandlingDrag { return }
+
                         if !isDragging {
                             isDragging = true
                             gestureStartIndex = currentIndex
@@ -120,6 +125,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                         }
                     }
                     .onEnded { value in
+                        if pagerContext.isChildHandlingDrag { return }
+
                         let isMatchingDirection = (orientation == .horizontal && dragDirection == .horizontal) ||
                             (orientation == .vertical && dragDirection == .vertical)
 
