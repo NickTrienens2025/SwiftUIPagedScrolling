@@ -38,7 +38,7 @@ struct MLBDailyGamesView: View {
                             .foregroundColor(.secondary)
                         Spacer()
                     } else {
-                        ScrollView {
+                        ScrollView(showsIndicators: false) {
                             VStack(spacing: 12) {
                                 ForEach(games) { game in
                                     gameCard(for: game)

@@ -26,6 +26,7 @@ struct DateTabsExample: View {
                     MLBDailyGamesView(date: dates[index])
                 }
                 .pageSpacing(1)
+                .pagerGesturePriority(.standard)
                 .environmentObject(store)
             } else {
                 ProgressView()

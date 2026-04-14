@@ -1,5 +1,11 @@
 import SwiftUI
 
+public enum PagerGesturePriority {
+    case standard
+    case high
+    case simultaneous
+}
+
 public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, Content: View>: View {
     private let data: Data
     private let id: KeyPath<Data.Element, ID>
@@ -15,8 +21,9 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
     var pageSpacing: CGFloat = 0
     var preloadAmount: Int = 2
     var orientation: Axis = .horizontal
+    var gesturePriority: PagerGesturePriority = .simultaneous
 
-    private enum DragDirection {
+    public enum DragDirection {
         case horizontal
         case vertical
     }
@@ -43,7 +50,9 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             let maxIndex = max(minIndex, min(data.count - 1, activeIndex + preloadAmount))
             let visibleRange = minIndex ... maxIndex
             
-            let disableScrolling = isDragging && ((orientation == .horizontal && dragDirection == .horizontal) || (orientation == .vertical && dragDirection == .vertical))
+            // Only apply robust scroll-disabling if priority is simultaneous.
+            let shouldDisableScrolling = gesturePriority == .simultaneous
+            let disableScrolling = shouldDisableScrolling && isDragging && ((orientation == .horizontal && dragDirection == .horizontal) || (orientation == .vertical && dragDirection == .vertical))
 
             ZStack(alignment: isHorizontal ? .leading : .top) {
                 if !data.isEmpty {
@@ -63,8 +72,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                 x: isHorizontal ? -CGFloat(isDragging ? gestureStartIndex : currentIndex) * totalDimension + offset : 0,
                 y: isHorizontal ? 0 : -CGFloat(isDragging ? gestureStartIndex : currentIndex) * totalDimension + offset
             )
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 15, coordinateSpace: .local)
+            .applyPagerGesture(
+                gesture: DragGesture(minimumDistance: 15, coordinateSpace: .local)
                     .onChanged { value in
                         if !isDragging {
                             isDragging = true
@@ -146,7 +155,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                             offset = 0
                         }
                         dragDirection = nil
-                    }
+                    },
+                priority: gesturePriority
             )
         }
         .clipped()
@@ -154,5 +164,19 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
 
     private func friction(_ value: CGFloat) -> CGFloat {
         return value * 0.3 // Simple friction
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func applyPagerGesture<G: Gesture>(gesture: G, priority: PagerGesturePriority) -> some View {
+        switch priority {
+        case .standard:
+            self.gesture(gesture)
+        case .high:
+            self.highPriorityGesture(gesture)
+        case .simultaneous:
+            self.simultaneousGesture(gesture)
+        }
     }
 }

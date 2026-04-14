@@ -18,4 +18,10 @@ public extension SwiftUIPagedScrolling {
         copy.orientation = orientation
         return copy
     }
+
+    func pagerGesturePriority(_ priority: PagerGesturePriority) -> SwiftUIPagedScrolling {
+        var copy = self
+        copy.gesturePriority = priority
+        return copy
+    }
 }
