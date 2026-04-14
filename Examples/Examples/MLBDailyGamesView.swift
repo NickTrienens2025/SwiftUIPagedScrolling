@@ -66,6 +66,11 @@ struct MLBDailyGamesView: View {
         }
     }
 
+    private let mockRoster = [
+        "J. Smith", "A. Judge", "M. Trout", "S. Ohtani", "F. Freeman", "M. Betts",
+        "R. Acuna", "J. Soto", "C. Bellinger", "G. Cole"
+    ]
+
     @ViewBuilder
     private func gameCard(for game: MLBGame) -> some View {
         VStack(spacing: 8) {
@@ -81,6 +86,21 @@ struct MLBDailyGamesView: View {
             Divider()
             teamRow(teamStatus: game.teams.away)
             teamRow(teamStatus: game.teams.home)
+            
+            Divider()
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(mockRoster, id: \.self) { player in
+                        Text(player)
+                            .font(.caption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.2))
+                            .clipShape(Capsule())
+                    }
+                }
+            }
         }
         .padding()
         .background(Color(UIColor.tertiarySystemBackground))
