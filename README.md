@@ -23,7 +23,7 @@ A highly modular, performant, and flexible SwiftUI paging component. `SwiftUIPag
 You can add `SwiftUIPagedScrolling` to an Xcode project by adding it as a package dependency.
 
 1. From the **File** menu, select **Add Packages...**
-2. Enter the repository URL: `https://github.com/nicktrienens/SwiftUIPagedScrolling`
+2. Enter the repository URL: `https://github.com/NickTrienens2025/SwiftUIPagedScrolling`
 3. Select the version requirements and target to add the package to.
 
 ## Usage
