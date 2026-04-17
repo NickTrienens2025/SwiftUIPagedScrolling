@@ -16,6 +16,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
     @State private var dragDirection: DragDirection? = nil
     @State private var isDragging: Bool = false
     @State private var gestureStartIndex: Int = 0
+    @State private var initialDragTranslation: CGFloat? = nil
 
     @StateObject private var pagerContext = PagerContext()
 
@@ -99,7 +100,14 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                             (orientation == .vertical && dragDirection == .vertical)
 
                         if isMatchingDirection {
-                            var nextOffset = isHorizontal ? value.translation.width : value.translation.height
+                            let currentTranslation = isHorizontal ? value.translation.width : value.translation.height
+                            
+                            if initialDragTranslation == nil {
+                                initialDragTranslation = currentTranslation
+                            }
+                            
+                            var nextOffset = currentTranslation - (initialDragTranslation ?? 0)
+                            
                             if gestureStartIndex == 0, nextOffset > 0 {
                                 nextOffset = friction(nextOffset)
                             } else if gestureStartIndex == data.count - 1, nextOffset < 0 {
@@ -134,6 +142,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 isDragging = false
                                 dragDirection = nil
+                                initialDragTranslation = nil
                                 offset = 0
                             }
                             return
@@ -162,6 +171,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                             offset = 0
                         }
                         dragDirection = nil
+                        initialDragTranslation = nil
                     },
                 priority: gesturePriority
             )
