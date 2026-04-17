@@ -28,6 +28,7 @@ struct DateTabsExample: View {
                 .pageSpacing(1)
                 .pagerGesturePriority(.simultaneous)
                 .environmentObject(store)
+                .ignoresSafeArea(edges: .bottom)
             } else {
                 ProgressView()
             }

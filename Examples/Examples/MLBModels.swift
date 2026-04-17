@@ -106,7 +106,7 @@ class MLBScheduleStore: ObservableObject {
             gamesByDate[dateString] = .success(response.dates.first?.games ?? [])
             
             let duration = Date().timeIntervalSince(fetchStartTime)
-            print("✅ [\(Date().formatted(date: .omitted, time: .standard))] Successfully fetched data for \(dateString) in \(String(format: "%.3f", duration))s")
+            print("✅ [\(Date().formatted(date: .omitted, time: .standard))] Successfully fetched data for \(dateString) in \(String(format: "%.3f", duration))s \(url)")
         } catch {
             let duration = Date().timeIntervalSince(fetchStartTime)
             print("❌ [\(Date().formatted(date: .omitted, time: .standard))] Failed to fetch MLB matches for \(dateString) after \(String(format: "%.3f", duration))s: \(error)")

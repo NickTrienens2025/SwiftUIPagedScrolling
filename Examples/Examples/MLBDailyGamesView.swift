@@ -44,6 +44,8 @@ struct MLBDailyGamesView: View {
                                 ForEach(games) { game in
                                     gameCard(for: game)
                                 }
+                                Spacer()
+                                    .frame(height: 100)
                             }
                         }
                     }
