@@ -177,6 +177,30 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             )
         }
         .clipped()
+        .accessibilityScrollAction { edge in
+            let isHorizontal = orientation == .horizontal
+            if isHorizontal {
+                if edge == .leading && currentIndex > 0 {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        currentIndex -= 1
+                    }
+                } else if edge == .trailing && currentIndex < data.count - 1 {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        currentIndex += 1
+                    }
+                }
+            } else {
+                if edge == .top && currentIndex > 0 {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        currentIndex -= 1
+                    }
+                } else if edge == .bottom && currentIndex < data.count - 1 {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        currentIndex += 1
+                    }
+                }
+            }
+        }
     }
 
     private func friction(_ value: CGFloat) -> CGFloat {

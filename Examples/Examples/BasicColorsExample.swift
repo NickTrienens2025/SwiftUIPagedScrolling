@@ -40,9 +40,23 @@ struct BasicColorsExample: View {
                             .fill(currentIndex == index ? colors[index] : Color.gray.opacity(0.3))
                             .frame(width: 12, height: 12)
                     }
+                    .accessibilityHidden(true)
                 }
             }
             .padding(.top, 20)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Page controls")
+            .accessibilityValue("Page \(currentIndex + 1) of \(colors.count)")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment:
+                    if currentIndex < colors.count - 1 { withAnimation { currentIndex += 1 } }
+                case .decrement:
+                    if currentIndex > 0 { withAnimation { currentIndex -= 1 } }
+                @unknown default:
+                    break
+                }
+            }
 
             Spacer()
         }

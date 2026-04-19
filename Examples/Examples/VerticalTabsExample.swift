@@ -47,6 +47,19 @@ struct VerticalTabsExample: View {
                 }
             }
             .padding(.vertical, 20)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Page controls")
+            .accessibilityValue("Page \(currentIndex + 1) of \(colors.count)")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment:
+                    if currentIndex < colors.count - 1 { withAnimation { currentIndex += 1 } }
+                case .decrement:
+                    if currentIndex > 0 { withAnimation { currentIndex -= 1 } }
+                @unknown default:
+                    break
+                }
+            }
         }
     }
 }

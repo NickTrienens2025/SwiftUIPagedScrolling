@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SwiftUI
 
 // MARK: - API Response Models
 
@@ -18,9 +19,10 @@ struct MLBGame: Decodable, Identifiable, Hashable {
     let status: MLBGameStatus
     let teams: MLBTeams
     let venue: MLBVenue
+    var liveDetail: MLBLiveFeed?
 
     static func == (lhs: MLBGame, rhs: MLBGame) -> Bool {
-        lhs.gamePk == rhs.gamePk
+        lhs.gamePk == rhs.gamePk && lhs.liveDetail == rhs.liveDetail
     }
 
     func hash(into hasher: inout Hasher) {
@@ -55,6 +57,43 @@ struct MLBTeam: Decodable {
 
 struct MLBVenue: Decodable {
     let name: String
+}
+
+// MARK: - Live Details Response Models
+
+struct MLBLiveFeed: Decodable, Equatable, Hashable {
+    let liveData: MLBLiveData
+}
+
+struct MLBLiveData: Decodable, Equatable, Hashable {
+    let linescore: MLBLinescore?
+    let decisions: MLBDecisions?
+}
+
+struct MLBDecisions: Decodable, Equatable, Hashable {
+    let winner: MLBPlayerRef?
+    let loser: MLBPlayerRef?
+    let save: MLBPlayerRef?
+}
+
+struct MLBLinescore: Decodable, Equatable, Hashable {
+    let currentInning: Int?
+    let inningState: String?
+    let inningHalf: String?
+    let balls: Int?
+    let strikes: Int?
+    let outs: Int?
+    let offense: MLBTeamStats?
+    let defense: MLBTeamStats?
+}
+
+struct MLBTeamStats: Decodable, Equatable, Hashable {
+    let batter: MLBPlayerRef?
+    let pitcher: MLBPlayerRef?
+}
+
+struct MLBPlayerRef: Decodable, Equatable, Hashable {
+    let fullName: String
 }
 
 // MARK: - Loading State
@@ -103,14 +142,41 @@ class MLBScheduleStore: ObservableObject {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(MLBScheduleResponse.self, from: data)
 
-            gamesByDate[dateString] = .success(response.dates.first?.games ?? [])
+            let games = response.dates.first?.games ?? []
+            gamesByDate[dateString] = .success(games)
             
             let duration = Date().timeIntervalSince(fetchStartTime)
             print("✅ [\(Date().formatted(date: .omitted, time: .standard))] Successfully fetched data for \(dateString) in \(String(format: "%.3f", duration))s \(url)")
+            
+            // Sequentially trigger live detail fetches for the games top down to animate updates
+            Task {
+                for game in games {
+                    await fetchLiveDetail(for: game.gamePk, dateString: dateString)
+                }
+            }
         } catch {
             let duration = Date().timeIntervalSince(fetchStartTime)
             print("❌ [\(Date().formatted(date: .omitted, time: .standard))] Failed to fetch MLB matches for \(dateString) after \(String(format: "%.3f", duration))s: \(error)")
             gamesByDate[dateString] = .error(error)
+        }
+    }
+    
+    private func fetchLiveDetail(for gamePk: Int, dateString: String) async {
+        guard let url = URL(string: "https://statsapi.mlb.com/api/v1.1/game/\(gamePk)/feed/live") else { return }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let detail = try JSONDecoder().decode(MLBLiveFeed.self, from: data)
+            
+            // Mutate state with animation to visually append row details smoothly
+            if case .success(var currentGames) = gamesByDate[dateString],
+               let index = currentGames.firstIndex(where: { $0.gamePk == gamePk }) {
+                withAnimation(.spring) {
+                    currentGames[index].liveDetail = detail
+                    gamesByDate[dateString] = .success(currentGames)
+                }
+            }
+        } catch {
+            print("❌ [\(Date().formatted(date: .omitted, time: .standard))] Failed to fetch live detail for game \(gamePk): \(error)")
         }
     }
 

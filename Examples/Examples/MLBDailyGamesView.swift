@@ -41,7 +41,12 @@ struct MLBDailyGamesView: View {
                     } else {
                         ScrollView(showsIndicators: false) {
                             VStack(spacing: 12) {
-                                ForEach(games) { game in
+                                let sortedGames = games.sorted {
+                                    if $0.status.abstractGameState == "Live" && $1.status.abstractGameState != "Live" { return true }
+                                    if $0.status.abstractGameState != "Live" && $1.status.abstractGameState == "Live" { return false }
+                                    return false
+                                }
+                                ForEach(sortedGames) { game in
                                     gameCard(for: game)
                                 }
                                 Spacer()
@@ -69,11 +74,6 @@ struct MLBDailyGamesView: View {
         }
     }
 
-    private let mockRoster = [
-        "J. Smith", "A. Judge", "M. Trout", "S. Ohtani", "F. Freeman", "M. Betts",
-        "R. Acuna", "J. Soto", "C. Bellinger", "G. Cole"
-    ]
-
     @ViewBuilder
     private func gameCard(for game: MLBGame) -> some View {
         VStack(spacing: 8) {
@@ -90,25 +90,80 @@ struct MLBDailyGamesView: View {
             teamRow(teamStatus: game.teams.away)
             teamRow(teamStatus: game.teams.home)
             
-            Divider()
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(mockRoster, id: \.self) { player in
-                        Text(player)
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color.secondary.opacity(0.2))
-                            .clipShape(Capsule())
-                    }
+            if game.status.abstractGameState == "Final" {
+                if let decisions = game.liveDetail?.liveData.decisions {
+                    Divider()
+                    decisionsRow(decisions: decisions)
                 }
+            } else if let linescore = game.liveDetail?.liveData.linescore {
+                Divider()
+                liveDetailRow(detail: linescore)
             }
-            .ignorePagerGesture()
         }
         .padding()
         .background(Color(UIColor.tertiarySystemBackground))
         .cornerRadius(12)
+    }
+    
+    @ViewBuilder
+    private func liveDetailRow(detail: MLBLinescore) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let inning = detail.currentInning, let state = detail.inningState {
+                    Text("\(state) \(inning)")
+                        .font(.caption.bold())
+                }
+                if let outs = detail.outs {
+                    Text("\(outs) Outs")
+                        .font(.caption2)
+                }
+                if let balls = detail.balls, let strikes = detail.strikes {
+                    Text("\(balls) - \(strikes)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                if let pitcher = detail.defense?.pitcher?.fullName {
+                    Text("P: \(pitcher)")
+                        .font(.caption)
+                }
+                if let batter = detail.offense?.batter?.fullName {
+                    Text("B: \(batter)")
+                        .font(.caption)
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func decisionsRow(decisions: MLBDecisions) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let winner = decisions.winner?.fullName {
+                    Text("W: \(winner)")
+                        .font(.caption)
+                }
+                if let loser = decisions.loser?.fullName {
+                    Text("L: \(loser)")
+                        .font(.caption)
+                }
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                if let save = decisions.save?.fullName {
+                    Text("S: \(save)")
+                        .font(.caption)
+                }
+            }
+        }
+        .padding(.top, 4)
     }
 
     @ViewBuilder
