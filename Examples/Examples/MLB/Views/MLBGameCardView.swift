@@ -1,81 +1,12 @@
 import SwiftUI
 import SwiftUIPagedScrolling
 
-struct MLBDailyGamesView: View {
-    let date: Date
-    @EnvironmentObject var store: MLBScheduleStore
-
-    private var dateKey: String {
-        store.formattedDate(date)
-    }
-
-    private var state: LoadingState<[MLBGame]>? {
-        store.gamesByDate[dateKey]
-    }
-
+/// An extracted view for individual game cards, featuring an isolated horizontal 
+/// scrolling area to demonstrate nested scroll view control and gesture recognition.
+struct MLBGameCardView: View {
+    let game: MLBGame
+    
     var body: some View {
-        ZStack {
-            Color(UIColor.secondarySystemBackground)
-
-            VStack(spacing: 20) {
-                HStack {
-                    Text(date.formatted(date: .long, time: .omitted))
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Spacer()
-
-                    if case .loading = state {
-                        ProgressView()
-                    } else if state == nil {
-                        ProgressView()
-                    }
-                }
-
-                switch state {
-                case let .success(games):
-                    if games.isEmpty {
-                        Spacer()
-                        Text("No scheduled games.")
-                            .foregroundColor(.secondary)
-                        Spacer()
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 12) {
-                                let sortedGames = games.sorted {
-                                    if $0.status.abstractGameState == "Live" && $1.status.abstractGameState != "Live" { return true }
-                                    if $0.status.abstractGameState != "Live" && $1.status.abstractGameState == "Live" { return false }
-                                    return false
-                                }
-                                ForEach(sortedGames) { game in
-                                    gameCard(for: game)
-                                }
-                                Spacer()
-                                    .frame(height: 100)
-                            }
-                        }
-                    }
-                case let .error(error):
-                    Spacer()
-                    Text("Error: \(error.localizedDescription)")
-                        .foregroundColor(.red)
-                    Spacer()
-                case .loading, .none:
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
-            }
-            .padding()
-        }
-        .task {
-            print("📊 [\(Date().formatted(date: .omitted, time: .standard))] MLBDailyGamesView loaded for date: \(dateKey)")
-            // Initiate data loading when this view segment appears.
-            await store.fetchGames(for: date)
-        }
-    }
-
-    @ViewBuilder
-    private func gameCard(for game: MLBGame) -> some View {
         VStack(spacing: 8) {
             HStack {
                 Text(game.status.detailedState)
@@ -99,6 +30,36 @@ struct MLBDailyGamesView: View {
                 Divider()
                 liveDetailRow(detail: linescore)
             }
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            // Horizontal scrolling area to show off scroll control
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Match Highlights")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        // Mocking some horizontal items for demonstration
+                        ForEach(1...8, id: \.self) { item in
+                            VStack(spacing: 4) {
+                                Image(systemName: "sportscourt")
+                                    .font(.title2)
+                                    .foregroundColor(.blue.opacity(0.8))
+                                Text("Play \(item)")
+                                    .font(.caption2)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(Color(UIColor.quaternarySystemFill))
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+                .ignorePagerGesture()
+            }
         }
         .padding()
         .background(Color(UIColor.tertiarySystemBackground))
@@ -107,22 +68,30 @@ struct MLBDailyGamesView: View {
     
     @ViewBuilder
     private func liveDetailRow(detail: MLBLinescore) -> some View {
-        HStack(alignment: .top) {
+        HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 4) {
                 if let inning = detail.currentInning, let state = detail.inningState {
                     Text("\(state) \(inning)")
                         .font(.caption.bold())
-                }
-                if let outs = detail.outs {
-                    Text("\(outs) Outs")
-                        .font(.caption2)
                 }
                 if let balls = detail.balls, let strikes = detail.strikes {
                     Text("\(balls) - \(strikes)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
+                if let outs = detail.outs {
+                    HStack(spacing: 6) {
+                        Text("\(outs) Outs")
+                            .font(.caption2)
+                        outsIndicator(outs: outs)
+                    }
+                }
             }
+            
+            Spacer()
+            
+            basesDiamond(offense: detail.offense)
+                .padding(.horizontal, 8)
             
             Spacer()
             
@@ -138,6 +107,40 @@ struct MLBDailyGamesView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func basesDiamond(offense: MLBTeamStats?) -> some View {
+        let firstOccupied = offense?.first != nil
+        let secondOccupied = offense?.second != nil
+        let thirdOccupied = offense?.third != nil
+        
+        VStack(spacing: 4) {
+            baseDiamond(occupied: secondOccupied)
+            HStack(spacing: 16) {
+                baseDiamond(occupied: thirdOccupied)
+                baseDiamond(occupied: firstOccupied)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func baseDiamond(occupied: Bool) -> some View {
+        Rectangle()
+            .fill(occupied ? Color.blue : Color.gray.opacity(0.3))
+            .frame(width: 10, height: 10)
+            .rotationEffect(.degrees(45))
+    }
+    
+    @ViewBuilder
+    private func outsIndicator(outs: Int) -> some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3) { i in
+                Circle()
+                    .fill(i < outs ? Color.red : Color.gray.opacity(0.3))
+                    .frame(width: 6, height: 6)
+            }
+        }
     }
 
     @ViewBuilder
