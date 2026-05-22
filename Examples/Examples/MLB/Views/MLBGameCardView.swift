@@ -5,6 +5,8 @@ import SwiftUIPagedScrolling
 /// scrolling area to demonstrate nested scroll view control and gesture recognition.
 struct MLBGameCardView: View {
     let game: MLBGame
+    @State private var isFavorited = false
+    @Environment(\.pagerContext) var pagerContext
     
     var body: some View {
         VStack(spacing: 8) {
@@ -16,6 +18,21 @@ struct MLBGameCardView: View {
                 Text(game.venue.name)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isFavorited.toggle()
+                    }
+                }) {
+                    Image(systemName: isFavorited ? "star.fill" : "star")
+                        .foregroundColor(isFavorited ? .yellow : .secondary)
+                        .font(.system(size: 16, weight: .medium))
+                        .padding(6)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(pagerContext?.isDragging ?? false)
             }
             Divider()
             teamRow(teamStatus: game.teams.away)

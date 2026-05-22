@@ -1,7 +1,8 @@
 import SwiftUI
 
 public class PagerContext: ObservableObject {
-    public var isChildHandlingDrag: Bool = false
+    @Published public var isChildHandlingDrag: Bool = false
+    @Published public var isDragging: Bool = false
     public init() {}
 }
 
@@ -33,11 +34,16 @@ private struct IgnorePagerGestureModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
+                DragGesture(minimumDistance: 5)
+                    .onChanged { value in
                         if !isTouching {
-                            isTouching = true
-                            pagerContext?.isChildHandlingDrag = true
+                            let dx = abs(value.translation.width)
+                            let dy = abs(value.translation.height)
+                            // Only claim the gesture for the child if it's primarily horizontal
+                            if dx > dy {
+                                isTouching = true
+                                pagerContext?.isChildHandlingDrag = true
+                            }
                         }
                     }
                     .onEnded { _ in

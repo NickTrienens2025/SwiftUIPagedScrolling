@@ -201,6 +201,9 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                 }
             }
         }
+        .onChange(of: isDragging) { newValue in
+            pagerContext.isDragging = newValue
+        }
     }
 
     private func friction(_ value: CGFloat) -> CGFloat {

@@ -53,6 +53,58 @@ struct ContentView: View {
     }
 }
 ```
+## Gesture Coordination (Interactive Child Controls)
+
+When placing interactive elements (like buttons) inside pager cells, dragging the pager can accidentally trigger the button's tap action when the user lifts their finger. This occurs because the parent pager uses a simultaneous gesture to coordinate with subview gestures.
+
+To prevent this, `SwiftUIPagedScrolling` provides the `isDragging` state in the shared `PagerContext`. You can disable child buttons dynamically when a drag is active, which tells SwiftUI to instantly cancel any active touch tracking:
+
+```swift
+struct PagerCellView: View {
+    let item: String
+    @Environment(\.pagerContext) var pagerContext
+    
+    var body: some View {
+        VStack {
+            Text(item)
+            
+            Button("Action") {
+                print("Tapped!")
+            }
+            .buttonStyle(.plain)
+            .disabled(pagerContext?.isDragging ?? false) // Prevents tap during drag
+        }
+    }
+}
+```
+
+## Nested ScrollViews (Same-Axis Side Scrolling)
+
+If you place a horizontal `ScrollView` inside a horizontal pager, the pager's drag gesture will compete with the child `ScrollView`'s touch gesture. 
+
+To resolve this conflict and allow the nested scroll view to scroll horizontally, apply the `.ignorePagerGesture()` view modifier to the inner scroll view. This tells the parent pager to ignore its own drag gestures when a horizontal drag is initiated on the nested scroll view:
+
+```swift
+struct PagerCellView: View {
+    var body: some View {
+        VStack {
+            Text("Cell Content")
+            
+            // A horizontal scrolling list inside a horizontal pager
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(1...10, id: \.self) { i in
+                        Text("Item \(i)")
+                            .padding()
+                            .background(Color.secondary.opacity(0.2))
+                    }
+                }
+            }
+            .ignorePagerGesture() // Allows side-scrolling inside the pager
+        }
+    }
+}
+```
 
 ## Running Examples
 
