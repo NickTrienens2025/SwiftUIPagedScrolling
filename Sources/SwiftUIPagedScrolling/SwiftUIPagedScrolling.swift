@@ -17,6 +17,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
     @State private var isDragging: Bool = false
     @State private var gestureStartIndex: Int = 0
     @State private var initialDragTranslation: CGFloat? = nil
+    @GestureState private var isGestureActive: Bool = false
 
     @StateObject private var pagerContext = PagerContext()
 
@@ -78,6 +79,9 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             )
             .applyPagerGesture(
                 gesture: DragGesture(minimumDistance: 15, coordinateSpace: .local)
+                    .updating($isGestureActive) { _, state, _ in
+                        state = true
+                    }
                     .onChanged { value in
                         if pagerContext.isChildHandlingDrag { return }
 
@@ -199,6 +203,17 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                         currentIndex += 1
                     }
                 }
+            }
+        }
+        .onChange(of: isGestureActive) { isActive in
+            if !isActive && isDragging {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    currentIndex = gestureStartIndex
+                    isDragging = false
+                    offset = 0
+                }
+                dragDirection = nil
+                initialDragTranslation = nil
             }
         }
         .onChange(of: isDragging) { newValue in
