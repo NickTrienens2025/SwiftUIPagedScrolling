@@ -13,6 +13,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
     private let content: (Data.Element) -> Content
 
     @State private var offset: CGFloat = 0
+    @State private var animatedIndex: CGFloat = 0
     @State private var dragDirection: DragDirection? = nil
     @State private var isDragging: Bool = false
     @State private var gestureStartIndex: Int = 0
@@ -74,8 +75,8 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                 }
             }
             .offset(
-                x: isHorizontal ? -CGFloat(isDragging ? gestureStartIndex : currentIndex) * totalDimension + offset : 0,
-                y: isHorizontal ? 0 : -CGFloat(isDragging ? gestureStartIndex : currentIndex) * totalDimension + offset
+                x: isHorizontal ? -animatedIndex * totalDimension + offset : 0,
+                y: isHorizontal ? 0 : -animatedIndex * totalDimension + offset
             )
             .applyPagerGesture(
                 gesture: DragGesture(minimumDistance: 15, coordinateSpace: .local)
@@ -88,6 +89,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                         if !isDragging {
                             isDragging = true
                             gestureStartIndex = currentIndex
+                            animatedIndex = CGFloat(currentIndex)
                         }
 
                         if dragDirection == nil {
@@ -144,6 +146,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
 
                         guard isMatchingDirection else {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                animatedIndex = CGFloat(gestureStartIndex)
                                 isDragging = false
                                 dragDirection = nil
                                 initialDragTranslation = nil
@@ -171,6 +174,7 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
 
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             currentIndex = newIndex
+                            animatedIndex = CGFloat(newIndex)
                             isDragging = false
                             offset = 0
                         }
@@ -205,10 +209,21 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                 }
             }
         }
+        .onAppear {
+            animatedIndex = CGFloat(currentIndex)
+        }
+        .onChange(of: currentIndex) { newValue in
+            if !isDragging && animatedIndex != CGFloat(newValue) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    animatedIndex = CGFloat(newValue)
+                }
+            }
+        }
         .onChange(of: isGestureActive) { isActive in
             if !isActive && isDragging {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     currentIndex = gestureStartIndex
+                    animatedIndex = CGFloat(gestureStartIndex)
                     isDragging = false
                     offset = 0
                 }
