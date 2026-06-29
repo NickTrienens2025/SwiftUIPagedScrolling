@@ -59,7 +59,118 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             let shouldDisableScrolling = gesturePriority == .simultaneous
             let disableScrolling = shouldDisableScrolling && isDragging && ((orientation == .horizontal && dragDirection == .horizontal) || (orientation == .vertical && dragDirection == .vertical))
 
-            ZStack(alignment: isHorizontal ? .leading : .top) {
+            let onChange: (CGSize) -> Void = { translation in
+                if pagerContext.isChildHandlingDrag { return }
+
+                if !isDragging {
+                    isDragging = true
+                    gestureStartIndex = currentIndex
+                    animatedIndex = CGFloat(currentIndex)
+                }
+
+                if dragDirection == nil {
+                    let dx = abs(translation.width)
+                    let dy = abs(translation.height)
+                    if dx > dy * 1.2 {
+                        dragDirection = .horizontal
+                    } else if dy > dx * 1.2 {
+                        dragDirection = .vertical
+                    }
+                }
+
+                let isMatchingDirection = (orientation == .horizontal && dragDirection == .horizontal) ||
+                    (orientation == .vertical && dragDirection == .vertical)
+
+                if isMatchingDirection {
+                    let currentTranslation = isHorizontal ? translation.width : translation.height
+
+                    if initialDragTranslation == nil {
+                        initialDragTranslation = currentTranslation
+                    }
+
+                    var nextOffset = currentTranslation - (initialDragTranslation ?? 0)
+
+                    if gestureStartIndex == 0, nextOffset > 0 {
+                        nextOffset = friction(nextOffset)
+                    } else if gestureStartIndex == data.count - 1, nextOffset < 0 {
+                        nextOffset = -friction(-nextOffset)
+                    }
+                    offset = nextOffset
+
+                    let halfDimension = totalDimension / 2.0
+                    var targetIndex = gestureStartIndex
+                    if offset < -halfDimension {
+                        targetIndex = gestureStartIndex + 1
+                    } else if offset > halfDimension {
+                        targetIndex = gestureStartIndex - 1
+                    }
+
+                    targetIndex = max(0, min(targetIndex, data.count - 1))
+
+                    if currentIndex != targetIndex {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            currentIndex = targetIndex
+                        }
+                    }
+                }
+            }
+
+            let onEnd: (CGSize, CGSize) -> Void = { _, velocity in
+                if pagerContext.isChildHandlingDrag { return }
+
+                let isMatchingDirection = (orientation == .horizontal && dragDirection == .horizontal) ||
+                    (orientation == .vertical && dragDirection == .vertical)
+
+                guard isMatchingDirection else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        animatedIndex = CGFloat(gestureStartIndex)
+                        isDragging = false
+                        dragDirection = nil
+                        initialDragTranslation = nil
+                        offset = 0
+                    }
+                    return
+                }
+
+                let threshold = dimension * 0.2
+                let directionalVelocity = isHorizontal ? velocity.width : velocity.height
+
+                var newIndex = gestureStartIndex
+
+                if offset > threshold || directionalVelocity > 400 {
+                    newIndex -= 1
+                } else if offset < -threshold || directionalVelocity < -400 {
+                    newIndex += 1
+                }
+
+                newIndex = max(0, min(newIndex, data.count - 1))
+
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    currentIndex = newIndex
+                    animatedIndex = CGFloat(newIndex)
+                    isDragging = false
+                    offset = 0
+                }
+                dragDirection = nil
+                initialDragTranslation = nil
+            }
+
+            let legacyGesture = DragGesture(minimumDistance: 15, coordinateSpace: .local)
+                .updating($isGestureActive) { _, state, _ in
+                    state = true
+                }
+                .onChanged { value in
+                    onChange(value.translation)
+                }
+                .onEnded { value in
+                    #if os(macOS)
+                    onEnd(value.translation, .zero)
+                    #else
+                    onEnd(value.translation, value.velocity)
+                    #endif
+                }
+
+            let stack = ZStack(alignment: isHorizontal ? .leading : .top) {
                 if !data.isEmpty {
                     ForEach(Array(visibleRange), id: \.self) { index in
                         let element = data[data.index(data.startIndex, offsetBy: index)]
@@ -78,111 +189,36 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                 x: isHorizontal ? -animatedIndex * totalDimension + offset : 0,
                 y: isHorizontal ? 0 : -animatedIndex * totalDimension + offset
             )
-            .applyPagerGesture(
-                gesture: DragGesture(minimumDistance: 15, coordinateSpace: .local)
-                    .updating($isGestureActive) { _, state, _ in
-                        state = true
+
+            #if os(iOS)
+            if #available(iOS 18.0, *) {
+                let onCancel: () -> Void = {
+                    guard isDragging else { return }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        currentIndex = gestureStartIndex
+                        animatedIndex = CGFloat(gestureStartIndex)
+                        isDragging = false
+                        offset = 0
                     }
-                    .onChanged { value in
-                        if pagerContext.isChildHandlingDrag { return }
+                    dragDirection = nil
+                    initialDragTranslation = nil
+                }
 
-                        if !isDragging {
-                            isDragging = true
-                            gestureStartIndex = currentIndex
-                            animatedIndex = CGFloat(currentIndex)
-                        }
-
-                        if dragDirection == nil {
-                            let dx = abs(value.translation.width)
-                            let dy = abs(value.translation.height)
-                            if dx > dy * 1.2 {
-                                dragDirection = .horizontal
-                            } else if dy > dx * 1.2 {
-                                dragDirection = .vertical
-                            }
-                        }
-
-                        let isMatchingDirection = (orientation == .horizontal && dragDirection == .horizontal) ||
-                            (orientation == .vertical && dragDirection == .vertical)
-
-                        if isMatchingDirection {
-                            let currentTranslation = isHorizontal ? value.translation.width : value.translation.height
-                            
-                            if initialDragTranslation == nil {
-                                initialDragTranslation = currentTranslation
-                            }
-                            
-                            var nextOffset = currentTranslation - (initialDragTranslation ?? 0)
-                            
-                            if gestureStartIndex == 0, nextOffset > 0 {
-                                nextOffset = friction(nextOffset)
-                            } else if gestureStartIndex == data.count - 1, nextOffset < 0 {
-                                nextOffset = -friction(-nextOffset)
-                            }
-                            offset = nextOffset
-
-                            let halfDimension = totalDimension / 2.0
-                            var targetIndex = gestureStartIndex
-                            if offset < -halfDimension {
-                                targetIndex = gestureStartIndex + 1
-                            } else if offset > halfDimension {
-                                targetIndex = gestureStartIndex - 1
-                            }
-
-                            targetIndex = max(0, min(targetIndex, data.count - 1))
-
-                            if currentIndex != targetIndex {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    currentIndex = targetIndex
-                                }
-                            }
-                        }
-                    }
-                    .onEnded { value in
-                        if pagerContext.isChildHandlingDrag { return }
-
-                        let isMatchingDirection = (orientation == .horizontal && dragDirection == .horizontal) ||
-                            (orientation == .vertical && dragDirection == .vertical)
-
-                        guard isMatchingDirection else {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                animatedIndex = CGFloat(gestureStartIndex)
-                                isDragging = false
-                                dragDirection = nil
-                                initialDragTranslation = nil
-                                offset = 0
-                            }
-                            return
-                        }
-
-                        let threshold = dimension * 0.2
-                        #if os(macOS)
-                            let velocity: CGFloat = 0 // macOS does not provide velocity on DragGesture value
-                        #else
-                            let velocity = isHorizontal ? value.velocity.width : value.velocity.height
-                        #endif
-
-                        var newIndex = gestureStartIndex
-
-                        if offset > threshold || velocity > 400 {
-                            newIndex -= 1
-                        } else if offset < -threshold || velocity < -400 {
-                            newIndex += 1
-                        }
-
-                        newIndex = max(0, min(newIndex, data.count - 1))
-
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            currentIndex = newIndex
-                            animatedIndex = CGFloat(newIndex)
-                            isDragging = false
-                            offset = 0
-                        }
-                        dragDirection = nil
-                        initialDragTranslation = nil
-                    },
-                priority: gesturePriority
-            )
+                stack.gesture(
+                    PagerPanGesture(
+                        axis: orientation,
+                        pagerContext: pagerContext,
+                        onChange: onChange,
+                        onEnd: onEnd,
+                        onCancel: onCancel
+                    )
+                )
+            } else {
+                stack.applyPagerGesture(gesture: legacyGesture, priority: gesturePriority)
+            }
+            #else
+            stack.applyPagerGesture(gesture: legacyGesture, priority: gesturePriority)
+            #endif
         }
         .clipped()
         .accessibilityScrollAction { edge in
