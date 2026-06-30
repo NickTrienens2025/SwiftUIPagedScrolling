@@ -155,21 +155,6 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                 initialDragTranslation = nil
             }
 
-            let legacyGesture = DragGesture(minimumDistance: 15, coordinateSpace: .local)
-                .updating($isGestureActive) { _, state, _ in
-                    state = true
-                }
-                .onChanged { value in
-                    onChange(value.translation)
-                }
-                .onEnded { value in
-                    #if os(macOS)
-                    onEnd(value.translation, .zero)
-                    #else
-                    onEnd(value.translation, value.velocity)
-                    #endif
-                }
-
             let stack = ZStack(alignment: isHorizontal ? .leading : .top) {
                 if !data.isEmpty {
                     ForEach(Array(visibleRange), id: \.self) { index in
@@ -191,19 +176,19 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
             )
 
             #if os(iOS)
-            if #available(iOS 18.0, *) {
-                let onCancel: () -> Void = {
-                    guard isDragging else { return }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        currentIndex = gestureStartIndex
-                        animatedIndex = CGFloat(gestureStartIndex)
-                        isDragging = false
-                        offset = 0
-                    }
-                    dragDirection = nil
-                    initialDragTranslation = nil
+            let onCancel: () -> Void = {
+                guard isDragging else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    currentIndex = gestureStartIndex
+                    animatedIndex = CGFloat(gestureStartIndex)
+                    isDragging = false
+                    offset = 0
                 }
+                dragDirection = nil
+                initialDragTranslation = nil
+            }
 
+            if #available(iOS 18.0, *) {
                 stack.gesture(
                     PagerPanGesture(
                         axis: orientation,
@@ -214,9 +199,31 @@ public struct SwiftUIPagedScrolling<Data: RandomAccessCollection, ID: Hashable, 
                     )
                 )
             } else {
-                stack.applyPagerGesture(gesture: legacyGesture, priority: gesturePriority)
+                stack.background(
+                    PagerPanInjector(
+                        axis: orientation,
+                        pagerContext: pagerContext,
+                        onChange: onChange,
+                        onEnd: onEnd,
+                        onCancel: onCancel
+                    )
+                )
             }
             #else
+            let legacyGesture = DragGesture(minimumDistance: 15, coordinateSpace: .local)
+                .updating($isGestureActive) { _, state, _ in
+                    state = true
+                }
+                .onChanged { value in
+                    onChange(value.translation)
+                }
+                .onEnded { value in
+                    #if os(macOS)
+                    onEnd(value.translation, .zero)
+                    #else
+                    onEnd(value.translation, value.velocity)
+                    #endif
+                }
             stack.applyPagerGesture(gesture: legacyGesture, priority: gesturePriority)
             #endif
         }
